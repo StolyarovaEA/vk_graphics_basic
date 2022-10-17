@@ -18,11 +18,19 @@ void main()
 	int n = 5;
 	ivec2 size = textureSize(colorTex, 0);
 	int k = 0;
-	for(int i = 0; i < n; i++)
-		for(int j = 0; j < n; j++)
+	for(int i = -2; i < n-2; i++)
+		for(int j = -2; j < n-2; j++)
 		{
 					float x = surf.texCoord.x + i/size.x;
 					float y = surf.texCoord.y + j/size.y;
+					if (x < 0 || x >= textureSize2d.x)
+      					{
+        					x = surf.texCoord.x;
+      					}
+      					if (y < 0 || y >= textureSize2d.y)
+      					{
+        					y = textureSize2d.y;
+      					}
 					vec2 coord = vec2(x, y);
 					vec4 pix_color = textureLod(colorTex, coord, 0);
 					color_r[k]=pix_color.x;
