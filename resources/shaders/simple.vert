@@ -3,6 +3,7 @@
 #extension GL_GOOGLE_include_directive : require
 
 #include "unpack_attributes.h"
+#include "common.h"
 
 
 layout(location = 0) in vec4 vPosNorm;
@@ -24,15 +25,32 @@ layout (location = 0 ) out VS_OUT
 
 } vOut;
 
+layout(binding = 0, set = 0) uniform AppData
+{
+  UniformParams Params;
+};
+
+layout(binding = 2, set = 0) readonly buffer InstanceDataMatrices
+{
+  mat4 InstanceMatrices[];
+};
+
+layout(binding = 3, set = 0) readonly buffer InstanceVisibleDataIndexes
+{
+  uint InstanceIndexes[];
+};
+
 out gl_PerVertex { vec4 gl_Position; };
 void main(void)
 {
+    uint instanceIndex = InstanceIndexes[gl_InstanceIndex];
+    mat4 mModel = InstanceMatrices[instanceIndex]*params.mModel;
     const vec4 wNorm = vec4(DecodeNormal(floatBitsToInt(vPosNorm.w)),         0.0f);
     const vec4 wTang = vec4(DecodeNormal(floatBitsToInt(vTexCoordAndTang.z)), 0.0f);
 
-    vOut.wPos     = (params.mModel * vec4(vPosNorm.xyz, 1.0f)).xyz;
-    vOut.wNorm    = normalize(mat3(transpose(inverse(params.mModel))) * wNorm.xyz);
-    vOut.wTangent = normalize(mat3(transpose(inverse(params.mModel))) * wTang.xyz);
+    vOut.wPos     = (mModel * vec4(vPosNorm.xyz, 1.0f)).xyz;
+    vOut.wNorm    = normalize(mat3(transpose(inverse(mModel))) * wNorm.xyz);
+    vOut.wTangent = normalize(mat3(transpose(inverse(mModel))) * wTang.xyz);
     vOut.texCoord = vTexCoordAndTang.xy;
 
     gl_Position   = params.mProjView * vec4(vOut.wPos, 1.0);
