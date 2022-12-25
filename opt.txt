@@ -1,0 +1,2 @@
+default: 2-3FPS
+instancing: 5-6FPS
