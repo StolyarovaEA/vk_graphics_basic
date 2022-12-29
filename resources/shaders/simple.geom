@@ -50,7 +50,7 @@ void main(void)
     vec3 topVertexPos = (vIn[0].wPos+vIn[1].wPos+vIn[2].wPos)/3.0f;
     vec3 topVertexTangent = (vIn[0].wTangent+vIn[1].wTangent+vIn[2].wTangent)/3.0f;
     vec2 topVertexTexCoord = (vIn[0].texCoord+vIn[1].texCoord+vIn[2].texCoord)/3.0f;
-    topVertexPos += (0.5+sin(5*(Params.time+0.5*topVertexPos.x)))*triangleNorm*0.03f;
+    topVertexPos += (1.5+cos(5*(Params.time+topVertexPos.x)))*triangleNorm*0.03f;
     emit_vertex(vIn[0].wPos, vIn[0].wNorm, vIn[0].wTangent, vIn[0].texCoord);
     emit_vertex(vIn[1].wPos, vIn[1].wNorm, vIn[1].wTangent, vIn[1].texCoord);
     emit_vertex(topVertexPos, triangleNorm, topVertexTangent, topVertexTexCoord);
