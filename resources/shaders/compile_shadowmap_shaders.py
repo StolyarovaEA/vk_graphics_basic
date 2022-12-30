@@ -5,7 +5,7 @@ import pathlib
 if __name__ == '__main__':
     glslang_cmd = "glslangValidator"
 
-    shader_list = ["simple.vert", "quad.vert", "quad.frag", "simple_shadow.frag", "simple_deffered.frag"]
+    shader_list = ["simple.vert", "quad.vert", "quad.frag", "simple_shadow.frag", "simple_deferred.frag"]
 
 
     for shader in shader_list:

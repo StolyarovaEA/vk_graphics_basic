@@ -34,6 +34,10 @@ void SimpleShadowmapRender::AllocateResources()
     .format     = vk::Format::eR32G32B32A32Sfloat,
     .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled });
 
+  gAlbedoMap     = m_context->createImage(etna::Image::CreateInfo{
+        .extent     = vk::Extent3D{ m_width, m_height, 1 },
+        .format     = vk::Format::eR32G32B32A32Sfloat,
+        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eSampled });
   defaultSampler = etna::Sampler(etna::Sampler::CreateInfo{});
   constants = m_context->createBuffer(etna::Buffer::CreateInfo
   {
@@ -66,6 +70,7 @@ void SimpleShadowmapRender::DeallocateResources()
   mainViewDepth.reset(); // TODO: Make an etna method to reset all the resources
   shadowMap.reset();
   gNormalMap.reset();
+  gAlbedoMap.reset();
   constants = etna::Buffer();
 }
 
@@ -148,10 +153,18 @@ void SimpleShadowmapRender::SetupSimplePipeline()
           .depthAttachmentFormat = vk::Format::eD16Unorm
         }
     });
+  auto blendAttachment   = vk::PipelineColorBlendAttachmentState{
+      .blendEnable    = false,
+      .colorWriteMask = vk::ColorComponentFlagBits::eR
+                      | vk::ColorComponentFlagBits::eG
+                      | vk::ColorComponentFlagBits::eB
+                      | vk::ColorComponentFlagBits::eA
+  };
   m_deferredPipelne      = pipelineManager.createGraphicsPipeline("simple_deferred",
     { .vertexShaderInput    = sceneVertexInputDesc,
-           .fragmentShaderOutput = {
-             .colorAttachmentFormats = { vk::Format::eR32G32B32A32Sfloat },
+      .blendingConfig    = {
+           .attachments = { blendAttachment, blendAttachment } },
+           .fragmentShaderOutput = { .colorAttachmentFormats = { vk::Format::eR32G32B32A32Sfloat, vk::Format::eR32G32B32A32Sfloat },
              .depthAttachmentFormat  = vk::Format::eD32Sfloat } });
 }
 
@@ -180,6 +193,7 @@ void SimpleShadowmapRender::DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4
   {
     auto inst         = m_pScnMgr->GetInstanceInfo(i);
     pushConst2M.model = m_pScnMgr->GetInstanceMatrix(i);
+    pushConst2M.id_albedo = i;
     vkCmdPushConstants(a_cmdBuff, m_shadowPipeline.getVkPipelineLayout(),
       stageFlags, 0, sizeof(pushConst2M), &pushConst2M);
 
@@ -230,6 +244,14 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        .baseArrayLayer = 0,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        .layerCount     = 1,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      } },
+
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     VkImageMemoryBarrier2{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED, .newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .image = gAlbedoMap.get(), .subresourceRange = {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       .baseMipLevel   = 0,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       .levelCount     = 1,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       .baseArrayLayer = 0,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       .layerCount     = 1,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     } },
       VkImageMemoryBarrier2{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, .srcStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .srcAccessMask = VK_ACCESS_SHADER_READ_BIT, .dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, .dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, .oldLayout = VK_IMAGE_LAYOUT_UNDEFINED, .newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .image = mainViewDepth.get(), .subresourceRange = {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      .aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      .baseMipLevel   = 0,
@@ -266,6 +288,20 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
   }
   {
     etna::RenderTargetState renderTargets(a_cmdBuff, { m_width, m_height }, { gNormalMap.getView({}) }, mainViewDepth.getView({ }));
+    {
+      auto simpleDeferredInfo = etna::get_shader_program("simple_deferred");
+      auto set                = etna::create_descriptor_set(simpleDeferredInfo.getDescriptorLayoutId(0), { etna::Binding{ 0, vk::DescriptorBufferInfo{ constants.get(), 0, VK_WHOLE_SIZE } } });
+
+      VkDescriptorSet vkSet = set.getVkSet();
+
+      vkCmdBindPipeline(a_cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, m_deferredPipelne.getVkPipeline());
+      vkCmdBindDescriptorSets(a_cmdBuff, VK_PIPELINE_BIND_POINT_GRAPHICS, m_deferredPipelne.getVkPipelineLayout(), 0, 1, &vkSet, 0, VK_NULL_HANDLE);
+      DrawSceneCmd(a_cmdBuff, m_worldViewProj);
+    }
+  }
+
+  {
+    etna::RenderTargetState renderTargets(a_cmdBuff, { m_width, m_height }, { gNormalMap.getView({}), gAlbedoMap.getView({}) }, mainViewDepth.getView({ }));
     {
       auto simpleDeferredInfo = etna::get_shader_program("simple_deferred");
       auto set                = etna::create_descriptor_set(simpleDeferredInfo.getDescriptorLayoutId(0), { etna::Binding{ 0, vk::DescriptorBufferInfo{ constants.get(), 0, VK_WHOLE_SIZE } } });
@@ -334,6 +370,13 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       .baseArrayLayer = 0,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       .layerCount     = 1,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     } },
+      VkImageMemoryBarrier2{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT, .oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .image = gAlbedoMap.get(), .subresourceRange = {
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      .baseMipLevel   = 0,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      .levelCount     = 1,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      .baseArrayLayer = 0,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      .layerCount     = 1,
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    } },
       VkImageMemoryBarrier2{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, .srcStageMask = VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT, .srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, .dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, .dstAccessMask = VK_ACCESS_SHADER_READ_BIT, .oldLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, .newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED, .image = mainViewDepth.get(), .subresourceRange = {
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    .aspectMask     = VK_IMAGE_ASPECT_DEPTH_BIT,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    .baseMipLevel   = 0,
@@ -364,7 +407,8 @@ void SimpleShadowmapRender::BuildCommandBufferSimple(VkCommandBuffer a_cmdBuff, 
         etna::Binding
       {
         3, vk::DescriptorImageInfo { defaultSampler.get(), gNormalMap.getView({  }), vk::ImageLayout::eShaderReadOnlyOptimal }
-      } });
+      }, 
+         etna::Binding{ 4, vk::DescriptorImageInfo{ defaultSampler.get(), gAlbedoMap.getView({}), vk::ImageLayout::eShaderReadOnlyOptimal } } });
 
     VkDescriptorSet vkSet = set.getVkSet();
 
