@@ -49,6 +49,9 @@ struct UniformParams
   shader_float time;
   shader_vec3  baseColor;
   shader_bool  animateLightColor;
+  shader_vec3 spotlight;
+  shader_float spotlight_in_angle;
+  shader_float spotlight_out_angle;
 };
 
 #endif // VK_GRAPHICS_BASIC_COMMON_H
