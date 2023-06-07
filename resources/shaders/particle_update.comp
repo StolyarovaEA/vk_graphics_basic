@@ -35,6 +35,7 @@ void main()
             return;
         }
         particles[idx].pos.y += Params.deltaTime;
+        particles[idx].pos.x +=  0.3 * sin(mix(0.1, 0, particles[idx].lifetime / Params.particleLifetime));
         particles[idx].rot = 0.3 * sin(mix(2 * 3.14, 0, particles[idx].lifetime / Params.particleLifetime));
         particles[idx].scale *= mix(0.999, 1, particles[idx].lifetime / Params.particleLifetime);
     }

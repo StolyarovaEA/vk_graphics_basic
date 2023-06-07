@@ -79,7 +79,7 @@ private:
   float4x4 m_worldViewProj;
   float4x4 m_lightMatrix;
   float4x4 m_emitterMatrix;
-  float3 emitterPos = LiteMath::float3(0.37f, -0.09f, 1.12f);
+  float3 emitterPos = LiteMath::float3(-0.45f, -0.43f, 1.12f);
   float emitterScale = 0.32f;
 
   UniformParams m_uniforms {};
