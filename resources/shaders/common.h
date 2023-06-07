@@ -24,31 +24,71 @@ using shader_mat4  = LiteMath::float4x4;
 // The funny thing is, on a GPU, you might as well consider
 // a single byte to be 32 bits, because nothing can be smaller
 // than 32 bits, so a bool has to be 32 bits as well.
-using shader_bool  = LiteMath::uint;
+using shader_bool = LiteMath::uint;
 
 #else
 
-#define shader_uint  uint
+#define shader_uint uint
 #define shader_uvec2 uvec2
 
 #define shader_float float
-#define shader_vec2  vec2
-#define shader_vec3  vec3
-#define shader_vec4  vec4
-#define shader_mat4  mat4
+#define shader_vec2 vec2
+#define shader_vec3 vec3
+#define shader_vec4 vec4
+#define shader_mat4 mat4
 
-#define shader_bool  bool
+#define shader_bool bool
 
 #endif
 
 
 struct UniformParams
 {
-  shader_mat4  lightMatrix;
-  shader_vec3  lightPos;
+  shader_mat4 lightMatrix;
+  shader_vec3 lightPos;
   shader_float time;
-  shader_vec3  baseColor;
-  shader_bool  animateLightColor;
+  shader_vec3 baseColor;
+  shader_bool animateLightColor;
+  shader_vec3 cameraUp;
+  shader_float particleAddInterval;
+  shader_vec3 cameraRight;
+  shader_float particleLifetime;
+  shader_vec3 cameraPos;
+  shader_float deltaTime;
+  shader_float particleSpawnRadius;
+  shader_uint screenWidth;
+  shader_uint screenHeight;
 };
 
-#endif // VK_GRAPHICS_BASIC_COMMON_H
+struct Particle
+{
+  shader_vec4 pos;// 16
+  shader_float rot;// 4
+  shader_float scale;// 4
+  shader_bool isAlive;// 4
+  shader_float lifetime;// 4
+};
+
+struct ParticleDrawData
+{
+  shader_vec4 pos;// 16
+  shader_float rot;// 4
+  shader_float scale;// 4
+  shader_float opacity;// 4
+};
+
+struct ParticleStats
+{
+  shader_uint particleCount;// 4
+  shader_float lastAddedTime;// 4
+};
+
+struct DrawIndirectCommand
+{
+  shader_uint vertexCount;
+  shader_uint instanceCount;
+  shader_uint firstVertex;
+  shader_uint firstInstance;
+};
+
+#endif// VK_GRAPHICS_BASIC_COMMON_H

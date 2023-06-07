@@ -37,13 +37,19 @@ void SimpleShadowmapRender::UpdateView()
   
   mLookAt       = LiteMath::lookAt(m_light.cam.pos, m_light.cam.pos + m_light.cam.forward()*10.0f, m_light.cam.up);
   m_lightMatrix = mProjFix*mProj*mLookAt;
+
+  m_emitterMatrix = LiteMath::translate4x4(emitterPos) * LiteMath::scale4x4(LiteMath::float3{emitterScale});
 }
 
-void SimpleShadowmapRender::UpdateUniformBuffer(float a_time)
+void SimpleShadowmapRender::UpdateUniformBuffer(float a_time, float a_dt)
 {
   m_uniforms.lightMatrix = m_lightMatrix;
   m_uniforms.lightPos    = m_light.cam.pos; //LiteMath::float3(sinf(a_time), 1.0f, cosf(a_time));
   m_uniforms.time        = a_time;
+  m_uniforms.deltaTime   = a_dt;
+  m_uniforms.cameraUp    = m_cam.up;
+  m_uniforms.cameraRight = m_cam.right();
+  m_uniforms.cameraPos   = m_cam.pos;
 
   memcpy(m_uboMappedMem, &m_uniforms, sizeof(m_uniforms));
 }
@@ -63,9 +69,9 @@ void SimpleShadowmapRender::ProcessInput(const AppInput &input)
   if(input.keyPressed[GLFW_KEY_B])
   {
 #ifdef WIN32
-    std::system("cd ../resources/shaders && python compile_shadowmap_shaders.py");
+    std::system("cd ../../resources/shaders && python compile_shadowmap_shaders.py");
 #else
-    std::system("cd ../resources/shaders && python3 compile_shadowmap_shaders.py");
+    std::system("cd ../../resources/shaders && python3 compile_shadowmap_shaders.py");
 #endif
 
     etna::reload_shaders();

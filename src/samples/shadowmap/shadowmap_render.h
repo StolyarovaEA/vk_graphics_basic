@@ -41,14 +41,20 @@ public:
   void UpdateView();
 
   void LoadScene(const char *path, bool transpose_inst_matrices) override;
-  void DrawFrame(float a_time, DrawMode a_mode) override;
+  void DrawFrame(float a_time, float a_dt, DrawMode a_mode) override;
 
 private:
   etna::GlobalContext* m_context;
   etna::Image mainViewDepth;
   etna::Image shadowMap;
+  etna::Image particleTex;
+  etna::Image perlinTex;
   etna::Sampler defaultSampler;
   etna::Buffer constants;
+  etna::Buffer particleBuffer;
+  etna::Buffer particleStatsBuffer;
+  etna::Buffer particleDrawList;
+  etna::Buffer particleIndirectBuffer;
 
   VkCommandPool    m_commandPool    = VK_NULL_HANDLE;
 
@@ -62,6 +68,7 @@ private:
 
   std::vector<VkFence> m_frameFences;
   std::vector<VkCommandBuffer> m_cmdBuffersDrawMain;
+  VkCommandBuffer m_cmdBufferAux;
 
   struct
   {
@@ -70,13 +77,20 @@ private:
   } pushConst2M;
 
   float4x4 m_worldViewProj;
-  float4x4 m_lightMatrix;    
+  float4x4 m_lightMatrix;
+  float4x4 m_emitterMatrix;
+  float3 emitterPos = LiteMath::float3(0.37f, -0.09f, 1.12f);
+  float emitterScale = 0.32f;
 
   UniformParams m_uniforms {};
   void* m_uboMappedMem = nullptr;
 
   etna::GraphicsPipeline m_basicForwardPipeline {};
   etna::GraphicsPipeline m_shadowPipeline {};
+  etna::ComputePipeline m_particleCreatorPipeline {};
+  etna::ComputePipeline m_particleUpdaterPipeline {};
+  etna::ComputePipeline m_particleDrawListPipeline {};
+  etna::GraphicsPipeline m_particlePipeline {};
 
   std::shared_ptr<vk_utils::DescriptorMaker> m_pBindings = nullptr;
   
@@ -138,11 +152,12 @@ private:
   void DrawSceneCmd(VkCommandBuffer a_cmdBuff, const float4x4& a_wvp);
 
   void loadShaders();
+  void initParticleBuffer();
 
   void SetupSimplePipeline();
   void RecreateSwapChain();
 
-  void UpdateUniformBuffer(float a_time);
+  void UpdateUniformBuffer(float a_time, float a_dt);
 
 
   void SetupDeviceExtensions();
